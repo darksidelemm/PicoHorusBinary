@@ -16,4 +16,4 @@ This code was very much a hack-up of an older codebase, and uses some fairly anc
 This is used to upload demodulated telemetry (from the fsk_horus modem) to Habitat. It will accept either a hexadecimal representation of the binary payload (refer PicoPayloadGPS/PicoPayloadGPS.ino for the format), or the 'classic' ASCII payload sentence (beginning with 'HORUS').
 
 Call with:
-* python telem_upload.py --callsign MYCALL <payload data here>
+* python telem_upload.py --callsign MYCALL payload_data_goes_here
