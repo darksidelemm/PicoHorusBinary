@@ -6,6 +6,7 @@ The following modem files have been 'snapshotted' from David Rowe's Codec2 SVN r
 * src/fsk_horus_stream.m - A wrapper for 'fsk_horus' allowing demodulation of audio passed in via stdin.
 * src/crc16.m - CRC16-CCITT library
 * src/horus_l2.c/h - Horus telemetry layer 2 processing (Golay encoding/decoding)
+
 The latest versions of these files will always be located in the codec2-dev SVN repository. The files copied to this git repository are intended to show what was used for this particular test flight.
 
 ## Hardware Used
@@ -38,11 +39,15 @@ telem_upload_command = "python telem_upload.py -c YOURCALLSIGNHERE_Octave";
 fsk_horus_stream.m takes 8KHz sample rate, 16-bit audio samples on stdin, and outputs results to the terminal and Habitat (if enabled). Under linux, you can get audio samples using 'rec' or 'arecord'.
 
 First, chmod fsk_horus_stream.m so it can be executed:
+
 ```$ chmod +x fsk_horus_stream.m```
 
 Under Linux, use one of the following to record samples and pipe into fsk_horus_stream:
+
 ```$ rec -t raw -r 8000 -s -2 -c 1 - -q | ./fsk_horus_stream.m ```
+
 or
+
 ```$ arecord -D pulse -r 8000 -c 1 -f S16_LE - | ./fsk_horus_stream.m ```
 
 Under OSX, you should be able to obtain sox (which contains the 'rec' utility), via macports.
