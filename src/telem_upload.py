@@ -1,15 +1,22 @@
 #!/usr/bin/env python
 #
-#	Horus Binary (and oldschool) Telemetry Uploader
+#   Horus Binary (and oldschool) Telemetry Uploader
 #
-#	Mark Jessop 2015-12-31
-#	<vk5qi@rfhead.net>
+#   Mark Jessop 2015-12-31
+#   <vk5qi@rfhead.net>
 #
-#	This script takes either a hex representation of the binary payload, or 
-#	a 'classic' ASCII sentence, and uploads it to Habitat.
+#   This script takes either a hex representation of the binary payload, or 
+#   a 'classic' ASCII sentence, and uploads it to Habitat.
 #
-#	Currently this script tells the two apart by looking for 'HORUS' at the start
-#	of the argument to determine if it's an ASCII sentence.
+#   Currently this script tells the two apart by looking for 'HORUS' at the start
+#   of the argument to determine if it's an ASCII sentence.
+#   
+#   It's designed to be called from fsk_horus_stream.m, and is tailored for it's output.
+#
+#   Dependencies:
+#   - Python 2.7 (Will probably break in Python 3)
+#   - crcmod (pip install crcmod)
+#
 
 import time, struct, json, socket, httplib, crcmod, argparse, sys
 from base64 import b64encode
@@ -25,16 +32,17 @@ def crc16_ccitt(data):
     crc16 = crcmod.predefined.mkCrcFun('crc-ccitt-false')
     return crc16(data)
 
+# Binary packet format, from https://github.com/darksidelemm/PicoHorusBinary/tree/master/PicoPayloadGPS
 # struct TBinaryPacket
 # {
-# uint8_t		PayloadID;
-# uint16_t	Counter;
-# uint8_t		Hours;
-# uint8_t		Minutes;
-# uint8_t		Seconds;
-# float		Latitude;
-# float		Longitude;
-# uint16_t  	Altitude;
+# uint8_t       PayloadID;
+# uint16_t  Counter;
+# uint8_t       Hours;
+# uint8_t       Minutes;
+# uint8_t       Seconds;
+# float     Latitude;
+# float     Longitude;
+# uint16_t      Altitude;
 # uint8_t   Speed; // Speed in Knots (1-255 knots)
 # uint8_t   Sats;
 # int8_t   Temp; // Twos Complement Temp value.
@@ -110,8 +118,8 @@ def habitat_upload_sentence(sentence, callsign="N0CALL"):
         response = c.getresponse()
         sys.exit(0)
     except Exception as e:
-    	print("Failed to upload to Habitat.")
-    	sys.exit(1)
+        print("Failed to upload to Habitat.")
+        sys.exit(1)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("raw_data", help="Raw Data, either hex binary data, or ASCII payload string.")
@@ -123,19 +131,27 @@ uploader_callsign = args.callsign
 raw_data = args.raw_data
 print(raw_data)
 
-# First, let's try and see if 
 if raw_data.startswith("HORUS"):
-	# Assume the data is a standard telemetry string and just upload it.
-	# Append a Newline to the end, and "$$"'s to the start.
-	if raw_data[:-1] != '\n':
-		raw_data = "$$" + raw_data + '\n'
+    # Assume the data is a standard telemetry string and just upload it.
+    # Append a Newline and checksum (if not alread there) to the end, and "$$"'s to the start.
+    if not '*' in raw_data:
+        # Assume there is no checksum on the end of the string, and add one.
+        checksum = hex(crc16_ccitt(raw_data))[2:].upper().zfill(4)
+        raw_data = raw_data + "*" + checksum
+    if raw_data[:-1] != '\n':
+        raw_data = "$$" + raw_data + '\n'
 
-	habitat_upload_sentence(raw_data, callsign = uploader_callsign)
+    habitat_upload_sentence(raw_data, callsign = uploader_callsign)
 else:
-	# Attempt to decode some hex data.
-	data = raw_data.decode("hex")
-	telem = decode_horus_binary_telemetry(data)
-	sentence = telemetry_to_sentence(telem)
-	print("Uploading: %s"%(sentence))
-	habitat_upload_sentence(sentence, callsign = uploader_callsign)
+    # Attempt to decode some hex data.
+    data = raw_data.decode("hex")
+    telem = decode_horus_binary_telemetry(data)
+    # Only convert and upload if checksum passes.
+    if(crc16_ccitt(data[:-2]) != telem['checksum']):
+        print("Checksum Failed!")
+        sys.exit(1)
+
+    sentence = telemetry_to_sentence(telem)
+    print("Uploading: %s"%(sentence))
+    habitat_upload_sentence(sentence, callsign = uploader_callsign)
 
